@@ -24,8 +24,10 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+var rest = require('restler');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var outfile = "tmp.html";
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -55,6 +57,28 @@ var checkHtmlFile = function(htmlfile, checksfile) {
     return out;
 };
 
+var dumpURL = function(url) {
+    var instr = url.toString();
+		
+		rest.get(instr).on('complete', function(data, response) {
+			fs.writeFileSync(outfile, data);
+		});
+		
+		return outfile;
+};
+
+var assertURLDumpFileExists = function(url) {
+    var instr = url.toString();
+		
+		var file = dumpURL(instr);
+		
+    if(!fs.existsSync(file)) {
+        console.log("%s does not exist. Exiting.", file);
+        process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
+    }
+    return file;
+};
+
 var clone = function(fn) {
     // Workaround for commander.js issue.
     // http://stackoverflow.com/a/6772648
@@ -65,10 +89,22 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <url>', 'URL', clone(assertURLDumpFileExists))
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+		//console.log(process.argv);
+		//console.log(program.file);
+		//console.log(program.url);
+	
+		if ( null != program.url )
+		{				
+			program.file = outfile;			
+		}
+		
+		var checkJson = checkHtmlFile(program.file, program.checks);
+		var outJson = JSON.stringify(checkJson, null, 4);
+		console.log(outJson);
+		fs.unlinkSync(program.file);
+		
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
